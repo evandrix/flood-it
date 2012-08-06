@@ -1,0 +1,137 @@
+<project name="Flood It" basedir=".">
+	<tstamp>
+	     <format property="TODAY" pattern="MM-dd-yyyy HH:mm:ss" />
+	</tstamp>
+	
+	<!-- properties -->
+	<property name="src" value="${basedir}/src"/>
+	<property name="dest" value="${basedir}/bin"/>
+	<property name="images.dir.name" value="Images"/>
+	<property name="images" value="${basedir}/${images.dir.name}"/>
+	<property name="installer.src" value="${basedir}/INSTALLATION_FILES"/>
+	<property name="library.code.dest" value ="${basedir}/LibraryCode.jar"/>
+	<property name="javadoc.dest" value="${basedir}/doc/api"/>
+	<property name="ant.package.name" value ="ant"/>
+	<property name="ant.package.dir" value ="/${ant.package.name}"/>
+	<property name="ant.jar.loc" value ="${basedir}/ant.jar"/>
+	<property name="classpath" value ="${dest};${library.code.dest};${ant.jar.loc};"/>
+	
+	<target name="init" unless="program.title"
+		description="initializes properties from ant.PropertiesTask">
+		<!-- Recompile ant task classes-->
+	    <delete failonerror="false">
+	        <fileset dir="${dest}${ant.package.dir}" includes="PropertiesTask.class"/>
+	    </delete>
+	    <javac srcdir="${src}${ant.package.dir}" 
+		destdir="${dest}" source="1.6" target="1.6" >
+		</javac>
+	      	
+	    <taskdef name="init.task" classpath="${classpath}"
+	    classname="ant.PropertiesTask"/>
+	   	<init.task/>
+		
+		<property name="version.complete" value = "${program.version.major}.${program.version.minor}.${program.version.revision}-${program.pre.release.id}"/>
+		
+		<echo message="initialization done"/>
+	</target>
+	
+	<target name="echo.properties" depends="init">
+			<echo message = "Base Dir: ${basedir}"/>
+			<echo message = "Src: ${src}"/>
+			<echo message = "Dest: ${dest}"/>
+			<!-- the following are properties from ini.properties -->
+			<echo message = "Program Name: ${program.name}"/>
+			<echo message = "Program Icon: ${program.icon}"/>
+			<echo message = "License: ${program.license.name}"/>
+			<echo message = "Major Version: ${program.version.major}"/>
+			<echo message = "Minor Version: ${program.version.minor}"/>
+			<echo message = "Revision: ${program.version.revision}"/>
+			<echo message = "Is Release: ${program.is.pre.release}"/>
+			<echo message = "Release: ${program.pre.release.id}"/>
+			<echo message = "Complete Version: ${version.complete}"/>
+	</target>
+		
+	<target name ="build.number" unless="${build.number}">
+	    <buildnumber file="build.num"/>
+	</target>
+	
+    <target name="build.info" depends="build.number"
+    	description="Saves the build info to ant.BuildInfo">
+        <!-- create a class that contains the build number and date -->
+        <copy file="${src}${ant.package.dir}/BuildInfo.java.tmpl"
+              tofile="${src}${ant.package.dir}/BuildInfo.java"
+              overwrite="true"/>
+
+        <replace file="${src}${ant.package.dir}/BuildInfo.java"
+            token="program.build.number" value="${build.number}"/>
+    	<replace file="${src}${ant.package.dir}/BuildInfo.java"
+    	    token="program.build.date" value="${TODAY}"/>
+    </target>
+					
+	<target name = "javadocs" depends="init,build.info"
+		description="Makes Javadoc documentation">
+		<javadoc 
+			classpath="${classpath}"
+			sourcepath="${src}"
+		    destdir="${javadoc.dest}"
+			use="true"
+			link="http://java.sun.com/javase/6/docs/api/"
+		    author="true"
+		    version="true"
+		    windowtitle="${program.name} API"
+		    doctitle="${program.name}"
+		    bottom="${program.name} ${version.complete}&lt;br&gt;
+			Distributed under the ${program.license.name} license."
+		/>
+	</target>
+	
+	<target name="make.installer" depends="build"
+		description="Make an installer for the program">
+		<mkdir dir="${installer.src}" />
+		
+		<copy todir="${installer.src}/${images.dir.name}">
+		    <fileset dir="${images}">
+		    	<exclude name="**/Thumbs.db"/>
+			</fileset>
+		</copy>
+		<copy file="config.ini" todir="${installer.src}"/>	
+		
+		<unjar src="${library.code.dest}" dest="${dest}" overwrite="false">
+	    	<patternset>
+	    		<include name="**/*.class"/>
+	    	</patternset>
+		</unjar>
+		
+		<jar destfile="${installer.src}/${program.name}.jar" basedir="${dest}"
+			includes="**/*.class">
+		    <manifest>
+		    	<attribute name="Manifest-Version" value="1.0"/>
+				<attribute name="Main-Class" value="gui.GUI"/>
+		    </manifest>
+		</jar>
+
+		<!-- generate installer -->
+		<property name="installer.generator.loc" value ="${basedir}/Installer Generator.jar"/>
+		<taskdef name="generate.installer" classpath="${installer.generator.loc}" classname="installerGenerator.InstallerGenerator" />
+		<generate.installer name="${program.name}" icon="${program.icon}" source="${installer.src}" installerJar="${installer.generator.loc}" />
+		
+		<delete dir="${installer.src}"/>
+	</target>
+
+	<target name="build" depends="init,build.info"
+		description="Make the project.">
+			<javac srcdir="${src}" classpath="${classpath}" destdir="${dest}" />
+	        <echo message="ver=${version.complete}"/>
+	</target>
+	
+	<target name="clean" 
+		description="Remove all generated files and prepare for a clean build.">
+		<delete dir="${dest}" />
+		<mkdir dir="${dest}" />
+	</target>
+	
+	<target name="rebuild" depends="clean,build"
+		description="Clean and make the project.">
+	</target>
+	
+</project>
